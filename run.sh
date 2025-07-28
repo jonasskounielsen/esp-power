@@ -7,7 +7,7 @@ if [ -c "$DEVICE_PATH" ]; then
         screen -S esp8266 -X quit
         python3 ./nodemcu-uploader/nodemcu-uploader.py \
             --port "$DEVICE_PATH" \
-            upload init.lua
+            upload ./init.lua:init.lua ./wifi_credentials.lua:wifi_credentials.lua
         screen -dm -S esp8266 "$DEVICE_PATH" 115200
         screen -S esp8266 -X stuff 'node.restart()\n'
         screen -r esp8266

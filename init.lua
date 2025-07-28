@@ -1,5 +1,4 @@
-local SSID = "";
-local PASSWORD = "";
+dofile("wifi_credentials.lua");
 
 wifi.setmode(wifi.STATION);
 wifi.sta.config({
@@ -7,6 +6,9 @@ wifi.sta.config({
     pwd = PASSWORD,
 });
 
-print(wifi.sta.getip());
-print(wifi.sta.gethostname());
-print(wifi.sta.getrssi());
+TIMER = tmr.create();
+TIMER.alarm(TIMER, 1000, tmr.ALARM_AUTO, function()
+    print(wifi.sta.getip());
+    print(wifi.sta.gethostname());
+    print(wifi.sta.getrssi());
+end);
