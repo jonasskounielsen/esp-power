@@ -12,3 +12,7 @@ TIMER.alarm(TIMER, 1000, tmr.ALARM_AUTO, function()
     print(wifi.sta.gethostname());
     print(wifi.sta.getrssi());
 end);
+
+function STOP() -- stop running code for consistent uploads
+    TIMER.stop(TIMER);
+end
