@@ -1,3 +1,3 @@
 /nodemcu-uploader
 .vscode
-wifi_credentials.lua
+secrets.lua
