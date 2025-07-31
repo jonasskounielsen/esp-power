@@ -10,7 +10,7 @@ if [ -c "$DEVICE_PATH" ]; then
             --port "$DEVICE_PATH" \
             upload \
                 ./init.lua:init.lua \
-                ./wifi_credentials.lua:wifi_credentials.lua
+                ./secrets.lua:secrets.lua
         screen -dm -S esp8266 "$DEVICE_PATH" 115200
         screen -S esp8266 -X stuff 'node.restart()\n'
         screen -r esp8266
