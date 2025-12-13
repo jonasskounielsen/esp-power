@@ -15,11 +15,14 @@ gpio.write(PIN, gpio.LOW);
 --- open relay through gpio pin
 local function open_relay()
     gpio.write(PIN, gpio.HIGH)
+    print("Opening relay");
     local timer = tmr.create();
     timer:alarm(3000, tmr.ALARM_SINGLE, function()
         gpio.write(PIN, gpio.LOW);
+        print("Closing relay");
     end)
 end
+
 --- handle received packet
 --- @param socket socket
 --- @param data string
@@ -31,7 +34,6 @@ local function on_receival(socket, data)
     local stripped_data = data:match("^%s*(.-)%s*$");
     if stripped_data == PASSWORD then
         open_relay();
-        print("Opening relay");
         socket:send("Opening relay");
     end
     socket:close();

@@ -1,3 +1,4 @@
 /nodemcu-uploader
+/types/
 .vscode
 secrets.lua
