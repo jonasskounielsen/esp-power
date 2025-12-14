@@ -13,7 +13,7 @@
   },
   "Lua.workspace.checkThirdParty": false,
   "Lua.diagnostics.globals": [
-    "PASSWORD",
+    "HMAC_KEY",
     "WIFI_SSID",
     "WIFI_PASSWORD"
   ]

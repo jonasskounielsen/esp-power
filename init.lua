@@ -8,6 +8,7 @@ wifi.sta.config({
 });
 
 local wifi_timer = tmr.create();
+local last_timestamp = 0;
 
 gpio.mode(PIN, gpio.OUTPUT);
 gpio.write(PIN, gpio.LOW);
@@ -23,6 +24,30 @@ local function open_relay()
     end)
 end
 
+--- convert byte string to hex
+--- @param str string
+--- @return string
+local function to_hex(str)
+    return str:gsub(".", function (character)
+        return string.format("%02x", string.byte(character));
+    end);
+end
+
+--- validate message with hmac
+--- @param command string
+--- @param timestamp number
+--- @param signature string
+--- @return boolean
+local function validate(command, timestamp, signature)
+    if timestamp <= last_timestamp then
+        return false;
+    end
+    last_timestamp = timestamp;
+    local data = command .. timestamp;
+    local expected_signature = to_hex(crypto.hmac("sha256", data, HMAC_KEY));
+    return expected_signature == signature;
+end
+
 --- handle received packet
 --- @param socket socket
 --- @param data string
@@ -31,10 +56,22 @@ local function on_receival(socket, data)
     for line in (data .. "\n"):gmatch("(.-)\n") do
         print("    " .. line);
     end
-    local stripped_data = data:match("^%s*(.-)%s*$");
-    if stripped_data == PASSWORD then
-        open_relay();
-        socket:send("Opening relay");
+    local lines = (data .. "\n"):gmatch("(.-)\n");
+    local command = lines();
+    local timestamp = lines();
+    local signature = lines();
+    if lines() ~= "" then
+        error("Too many lines");
+    end
+    local timestamp_num = tonumber(timestamp);
+    if timestamp_num == nil then
+        error("Timestamp is not a numeral");
+    end
+    if validate(command, timestamp_num, signature) then
+        if command == "open relay" then
+            open_relay();
+            socket:send("Opening relay");
+        end
     end
     socket:close();
 end
