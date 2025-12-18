@@ -10,16 +10,16 @@ wifi.sta.config({
 local wifi_timer = tmr.create();
 local last_timestamp = 0;
 
-gpio.mode(PIN, gpio.OUTPUT);
-gpio.write(PIN, gpio.LOW);
+gpio.mode(PIN, gpio.OPENDRAIN);
+gpio.write(PIN, gpio.HIGH);
 
 --- open relay through gpio pin
 local function open_relay()
-    gpio.write(PIN, gpio.HIGH)
+    gpio.write(PIN, gpio.LOW)
     print("Opening relay");
     local timer = tmr.create();
-    timer:alarm(3000, tmr.ALARM_SINGLE, function()
-        gpio.write(PIN, gpio.LOW);
+    timer:alarm(500, tmr.ALARM_SINGLE, function()
+        gpio.write(PIN, gpio.HIGH);
         print("Closing relay");
     end)
 end
