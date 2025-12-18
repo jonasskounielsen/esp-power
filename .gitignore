@@ -2,3 +2,4 @@
 /types/
 .vscode
 secrets.lua
+__pycache__

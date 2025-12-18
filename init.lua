@@ -1,5 +1,6 @@
 dofile("secrets.lua");
 
+TCP_PORT = 10727;
 PIN = 1;
 wifi.setmode(wifi.STATION);
 wifi.sta.config({
@@ -60,18 +61,24 @@ local function on_receival(socket, data)
     local command = lines();
     local timestamp = lines();
     local signature = lines();
-    if lines() ~= "" then
-        error("Too many lines");
-    end
+
     local timestamp_num = tonumber(timestamp);
     if timestamp_num == nil then
-        error("Timestamp is not a numeral");
+        print("Timestamp is not a numeral");
+        socket:send("Timestamp is not a numeral");
+        return;
     end
     if validate(command, timestamp_num, signature) then
         if command == "open relay" then
             open_relay();
             socket:send("Opening relay");
+        else
+            socket:send("Invalid command");
+            print("Invalid command");
         end
+    else
+        socket:send("Invalid signature or timestamp");
+        print("Invalid signature or timestamp");
     end
     socket:close();
 end
@@ -102,7 +109,7 @@ local function check_connection()
         return;
     end
 
-    server:listen(80, on_connection);
+    server:listen(TCP_PORT, on_connection);
 end
 
 wifi_timer:alarm(1000, tmr.ALARM_AUTO, check_connection);
