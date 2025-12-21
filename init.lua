@@ -8,8 +8,10 @@ wifi.sta.config({
     pwd = WIFI_PASSWORD,
 });
 
-local wifi_timer = tmr.create();
-local last_timestamp = 0;
+wifi_timer = tmr.create();
+was_connected = false;
+server = nil;
+last_timestamp = 0;
 
 gpio.mode(PIN, gpio.OPENDRAIN);
 gpio.write(PIN, gpio.HIGH);
@@ -29,6 +31,7 @@ end
 --- @param str string
 --- @return string
 local function to_hex(str)
+    ---@diagnostic disable-next-line: redundant-return-value
     return str:gsub(".", function (character)
         return string.format("%02x", string.byte(character));
     end);
@@ -43,10 +46,35 @@ local function validate(command, timestamp, signature)
     if timestamp <= last_timestamp then
         return false;
     end
-    last_timestamp = timestamp;
     local data = command .. timestamp;
     local expected_signature = to_hex(crypto.hmac("sha256", data, HMAC_KEY));
-    return expected_signature == signature;
+    if expected_signature == signature then
+        last_timestamp = timestamp;
+        return true;
+    else
+        return false;
+    end
+end
+
+--- send packet safely
+--- @param socket socket
+--- @param callback function
+local function socket_send(socket, message, callback)
+    if socket then
+        pcall(function()
+            socket:send(message, callback);
+        end);
+    end
+end
+
+--- close socket safely
+--- @param socket socket
+local function close_socket(socket)
+    if socket then
+        pcall(function()
+            socket:close();
+        end);
+    end
 end
 
 --- handle received packet
@@ -65,49 +93,79 @@ local function on_receival(socket, data)
     local timestamp_num = tonumber(timestamp);
     if timestamp_num == nil then
         print("Timestamp is not a numeral");
-        socket:send("Timestamp is not a numeral");
-        return;
-    end
-    if validate(command, timestamp_num, signature) then
+        socket_send(socket, "Timestamp is not a numeral", function ()
+            close_socket(socket);
+        end);
+    elseif validate(command, timestamp_num, signature) then
         if command == "open relay" then
             open_relay();
-            socket:send("Opening relay");
+            socket_send(socket, "Opening relay", function ()
+                close_socket(socket);
+            end);
         else
-            socket:send("Invalid command");
+            socket_send(socket, "Invalid command", function ()
+                close_socket(socket);
+            end);
             print("Invalid command");
         end
     else
-        socket:send("Invalid signature or timestamp");
+        socket_send(socket, "Invalid signature or timestamp", function ()
+            close_socket(socket);
+        end);
         print("Invalid signature or timestamp");
     end
-    socket:close();
 end
 
 --- handle received connection request
 --- @param connection socket
 local function on_connection(connection)
-    connection:on("receive", on_receival);
+    connection:on("receive", function (socket, data)
+        node.task.post(function ()
+            on_receival(socket, tostring(data));
+        end);
+    end);
+    connection:on("disconnection", function (socket, error)
+        print(socket:getpeer());
+            close_socket(socket);
+        print("Disconnected with code: " .. error);
+    end);
 end
 
 local function check_connection()
     local ip = wifi.sta.getip();
+    local is_connected = ip ~= nil;
 
-    if not ip then
+    if not is_connected and was_connected then
+        wifi.sta.connect();
+    end
+
+    if not is_connected then
         print("Waiting for connection");
+        if server then
+            local s = server;
+            server = nil;
+            pcall(function()
+                s:close();
+            end);
+        end
+    end
+
+    was_connected = is_connected;
+
+    if server or not is_connected then
+        return;
+    end
+
+    server = net.createServer(net.TCP);
+
+    if not server then
+        print("Failed to create server");
         return;
     end
 
     print("Connected");
     print("Hostname: " .. wifi.sta.gethostname());
     print("Ip: " .. ip);
-    wifi_timer:stop();
-
-    local server = net.createServer(net.TCP);
-
-    if not server then
-        print("Failed to create server");
-        return;
-    end
 
     server:listen(TCP_PORT, on_connection);
 end

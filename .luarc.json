@@ -2,7 +2,7 @@
   "Lua.workspace.library": [
     "./types/nodeMCU-emmylua/esp8266/library"
   ],
-  "Lua.runtime.version": "Lua 5.3",
+  "Lua.runtime.version": "Lua 5.1.4",
   "Lua.runtime.builtin": {
     "math": "disable",
     "bit": "disable",
@@ -15,6 +15,9 @@
   "Lua.diagnostics.globals": [
     "HMAC_KEY",
     "WIFI_SSID",
-    "WIFI_PASSWORD"
-  ]
+    "WIFI_PASSWORD",
+  ],
+    "diagnostics.disable": [
+        "lowercase-global"
+    ]
 }
