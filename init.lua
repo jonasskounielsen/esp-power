@@ -125,8 +125,7 @@ local function on_connection(connection)
         end);
     end);
     connection:on("disconnection", function (socket, error)
-        print(socket:getpeer());
-            close_socket(socket);
+        close_socket(socket);
         print("Disconnected with code: " .. error);
     end);
 end
@@ -171,6 +170,10 @@ local function check_connection()
 end
 
 wifi_timer:alarm(1000, tmr.ALARM_AUTO, check_connection);
+
+tmr.create():alarm(60000, tmr.ALARM_SINGLE, function ()
+    node.restart();
+end);
 
 function STOP() -- stop running code for consistent uploads
     wifi_timer.stop(wifi_timer);
