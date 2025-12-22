@@ -151,7 +151,7 @@ end
 
 wifi_timer:alarm(1000, tmr.ALARM_AUTO, check_connection);
 
-tmr.create():alarm(3600000, tmr.ALARM_SINGLE, function ()
+tmr.create():alarm(60000, tmr.ALARM_SINGLE, function ()
     node.restart();
 end);
 
