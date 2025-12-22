@@ -1,6 +1,6 @@
 dofile("secrets.lua");
 
-TCP_PORT = 10727;
+UDP_PORT = 10727;
 PIN = 1;
 wifi.setmode(wifi.STATION);
 wifi.sta.config({
@@ -8,10 +8,10 @@ wifi.sta.config({
     pwd = WIFI_PASSWORD,
 });
 
-wifi_timer = tmr.create();
-was_connected = false;
-server = nil;
-last_timestamp = 0;
+local wifi_timer = tmr.create();
+local was_connected = false;
+local server = nil;
+local last_timestamp = 0;
 
 gpio.mode(PIN, gpio.OPENDRAIN);
 gpio.write(PIN, gpio.HIGH);
@@ -57,30 +57,24 @@ local function validate(command, timestamp, signature)
 end
 
 --- send packet safely
---- @param socket socket
---- @param callback function
-local function socket_send(socket, message, callback)
+--- @param socket udpsocket
+--- @param port integer
+--- @param ip string
+--- @param message string
+local function socket_send(socket, port, ip, message)
     if socket then
         pcall(function()
-            socket:send(message, callback);
-        end);
-    end
-end
-
---- close socket safely
---- @param socket socket
-local function close_socket(socket)
-    if socket then
-        pcall(function()
-            socket:close();
+            socket:send(port, ip, message);
         end);
     end
 end
 
 --- handle received packet
---- @param socket socket
+--- @param socket udpsocket
 --- @param data string
-local function on_receival(socket, data)
+--- @param port integer
+--- @param ip string
+local function on_receival(socket, data, port, ip)
     print("Received:");
     for line in (data .. "\n"):gmatch("(.-)\n") do
         print("    " .. line);
@@ -93,46 +87,25 @@ local function on_receival(socket, data)
     local timestamp_num = tonumber(timestamp);
     if timestamp_num == nil then
         print("Timestamp is not a numeral");
-        socket_send(socket, "Timestamp is not a numeral", function ()
-            close_socket(socket);
-        end);
+        socket_send(socket, port, ip, "Timestamp is not a numeral");
     elseif validate(command, timestamp_num, signature) then
         if command == "open relay" then
             open_relay();
-            socket_send(socket, "Opening relay", function ()
-                close_socket(socket);
-            end);
+            socket_send(socket, port, ip, "Opening relay");
         else
-            socket_send(socket, "Invalid command", function ()
-                close_socket(socket);
-            end);
+            socket_send(socket, port, ip, "Invalid command");
             print("Invalid command");
         end
     else
-        socket_send(socket, "Invalid signature or timestamp", function ()
-            close_socket(socket);
-        end);
+        socket_send(socket, port, ip, "Invalid signature or timestamp");
         print("Invalid signature or timestamp");
     end
 end
 
---- handle received connection request
---- @param connection socket
-local function on_connection(connection)
-    connection:on("receive", function (socket, data)
-        node.task.post(function ()
-            on_receival(socket, tostring(data));
-        end);
-    end);
-    connection:on("disconnection", function (socket, error)
-        close_socket(socket);
-        print("Disconnected with code: " .. error);
-    end);
-end
-
+--- periodically check wifi connection
 local function check_connection()
-    local ip = wifi.sta.getip();
-    local is_connected = ip ~= nil;
+    local own_ip = wifi.sta.getip();
+    local is_connected = own_ip ~= nil;
 
     if not is_connected and was_connected then
         wifi.sta.connect();
@@ -141,10 +114,10 @@ local function check_connection()
     if not is_connected then
         print("Waiting for connection");
         if server then
-            local s = server;
+            local local_server = server;
             server = nil;
             pcall(function()
-                s:close();
+                local_server:close();
             end);
         end
     end
@@ -155,7 +128,7 @@ local function check_connection()
         return;
     end
 
-    server = net.createServer(net.TCP);
+    server = net.createUDPSocket();
 
     if not server then
         print("Failed to create server");
@@ -164,17 +137,25 @@ local function check_connection()
 
     print("Connected");
     print("Hostname: " .. wifi.sta.gethostname());
-    print("Ip: " .. ip);
+    print("Ip: " .. own_ip);
 
-    server:listen(TCP_PORT, on_connection);
+    server:listen(UDP_PORT);
+
+    ---@diagnostic disable-next-line: redundant-parameter
+    server:on("receive", function (socket, data, port, ip)
+        node.task.post(function ()
+            on_receival(socket, tostring(data), port, ip);
+        end);
+    end);
 end
 
 wifi_timer:alarm(1000, tmr.ALARM_AUTO, check_connection);
 
-tmr.create():alarm(60000, tmr.ALARM_SINGLE, function ()
+tmr.create():alarm(3600000, tmr.ALARM_SINGLE, function ()
     node.restart();
 end);
 
-function STOP() -- stop running code for consistent uploads
+--- stop running code for consistent uploads
+function STOP()
     wifi_timer.stop(wifi_timer);
 end
